@@ -1,0 +1,1922 @@
+openapi: 3.0.1
+info:
+  description: 'This document defines the Mailbutler API, which allows access to Mailbutler data and functions, which are described at [mailbutler.io](https://www.mailbutler.io). '
+  version: v2
+  title: Mailbutler Core  - v2
+  contact:
+    name: Fabian Jäger
+    email: fabian@mailbutler.io
+servers:
+  - url: 'https://beta.mailbutler.io/api/v2'
+    description: Staging server
+  - url: 'https://bowtie.mailbutler.io/api/v2'
+    description: Production server
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  headers:
+    X-Remaining-Actions:
+      description: Remaining number of actions. (Only present if changed)
+      schema:
+        type: integer
+        minimum: 0
+    Location:
+      description: 'Location of newly created resource, if successful.'
+      schema:
+        type: string
+        format: url
+    TrackingItemLocation:
+      description: 'URL of newly created tracking item. Depending of the item type (link/pixel), it will return the corresponding extension, too.'
+      schema:
+        type: string
+        format: url
+    Link:
+      description: 'Paging links to request first, previous, next, last page, if appropriate. Follows [RFC-5988](https://tools.ietf.org/html/rfc5988)'
+      schema:
+        type: string
+    X-Total-Count:
+      description: Total number of items for the requested resource.
+      schema:
+        type: integer
+        minimum: 0
+  schemas:
+    ActionType:
+      type: string
+      enum:
+        - attachment_reminder
+        - attachment_upload
+        - undo_send
+        - unsubscribe
+        - send_later
+        - note
+        - signature
+        - tracking
+        - snooze
+        - task
+        - shared_message_template
+        - message_template
+        - auto_bcc
+        - custom_signature
+        - tracking_details
+        - link_tracking
+        - m_card
+        - public_note
+        - public_task
+        - follow_up
+      description: 'Defines the existing action types, corresponding to Mailbutler features.'
+    ExternalService:
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        category:
+          type: string
+          readOnly: true
+        type:
+          type: string
+        name:
+          type: string
+          nullable: true
+        email_address:
+          type: string
+          nullable: true
+        access_token:
+          type: string
+          readOnly: true
+          nullable: true
+        external_identifier:
+          type: string
+          nullable: true
+        incoming_mail_server_config:
+          $ref: '#/components/schemas/ServerConfig'
+        outgoing_mail_server_config:
+          $ref: '#/components/schemas/ServerConfig'
+      required:
+        - id
+        - category
+        - type
+        - name
+        - email_address
+        - external_identifier
+      description: External services define linked services or email accounts.
+    AuthType:
+      type: string
+      enum:
+        - plain
+        - login
+        - cram_md5
+        - xoauth2
+      default: plain
+      description: Authentication mode for email servers.
+    ServerConfig:
+      properties:
+        address:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+          writeOnly: true
+        auth_type:
+          $ref: '#/components/schemas/AuthType'
+        use_ssl:
+          type: boolean
+          default: true
+        path_prefix:
+          type: string
+        sent_folder_path:
+          type: string
+      required:
+        - address
+        - port
+        - username
+        - password
+      description: A custom configuration of an email server.
+    User:
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        name:
+          type: string
+      required:
+        - id
+        - email
+        - name
+      description: A user in the Mailbutler system.
+    Team:
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        organization_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        name:
+          type: string
+          readOnly: true
+        members:
+          deprecated: true
+          type: array
+          readOnly: true
+          items:
+            type: string
+            format: uuid
+        users:
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/User'
+      required:
+        - id
+        - organization_id
+        - name
+        - members
+        - users
+      description: A team as created by a Mailbutler user.
+    BCCRule:
+      properties:
+        sender_condition:
+          type: string
+        recipient_condition:
+          type: string
+        recipient_not_condition:
+          type: string
+        bcc_address:
+          type: string
+      required:
+        - bcc_address
+      description: Definition of a condition when to automatically add a Bcc address to outgoing emails.
+    WorkingHours:
+      properties:
+        working_days:
+          type: array
+          items:
+            type: integer
+        working_hours_start:
+          properties:
+            hour:
+              type: integer
+            minute:
+              type: integer
+        working_hours_end:
+          properties:
+            hour:
+              type: integer
+            minute:
+              type: integer
+      description: 'Defines when a user typically works. Affects certain features of Mailbutler, such as Send Later and Snoozing.'
+    Preferences:
+      properties:
+        bcc_rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/BCCRule'
+        undo_send:
+          properties:
+            enable:
+              type: boolean
+            delay:
+              type: integer
+        working_hours:
+          $ref: '#/components/schemas/WorkingHours'
+        attachment_reminder:
+          properties:
+            enable:
+              type: boolean
+            custom_keywords:
+              type: array
+              items:
+                type: string
+        attachment_upload:
+          properties:
+            list_above_message:
+              type: boolean
+        tracking:
+          properties:
+            mode:
+              type: integer
+              minimum: 0
+              maximum: 3
+        snooze:
+          properties:
+            default_time_offset:
+              type: integer
+            working_hours_only:
+              type: boolean
+            time_offsets:
+              type: array
+              items:
+                type: integer
+        follow_up:
+          properties:
+            default_time_offset:
+              type: integer
+            working_hours_only:
+              type: boolean
+            time_offsets:
+              type: array
+              items:
+                type: integer
+        unsubscribe:
+          properties:
+            enable:
+              type: boolean
+        privacy:
+          properties:
+            email_meta:
+              type: integer
+            avatar:
+              type: integer
+        sponsored_actions:
+          properties:
+            enable:
+              type: boolean
+      description: "The user's preferences."
+    Signature:
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        text:
+          type: string
+        is_custom:
+          type: boolean
+      required:
+        - id
+        - name
+        - text
+        - is_custom
+      description: 'An email signature, rendered based on user-provided information and an underlying template.'
+    PlanAction:
+      properties:
+        type:
+          $ref: '#/components/schemas/ActionType'
+        is_free:
+          type: boolean
+      required:
+        - type
+        - is_free
+      description: Defines whether a feature is included in a plan.
+    Plan:
+      properties:
+        name:
+          type: string
+        action_budget:
+          type: integer
+        allows_sponsored_actions:
+          type: boolean
+        included_actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanAction'
+        trial_end_date:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - name
+        - action_budget
+        - allows_sponsored_actions
+        - included_actions
+        - trial_end_date
+      description: A subscription plan.
+    ContactMeta:
+      properties:
+        contact_id:
+          type: string
+          format: md5_uuid
+          description: "UUID-MD5 hash of a contact's email address `uuid(md5(to_lower($email)))`"
+        email:
+          deprecated: true
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+      required:
+        - email
+        - name
+      description: Basic information about a contact.
+    ContactInfo:
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        label:
+          type: string
+        value:
+          type: string
+        team_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          format: uuid
+          readOnly: true
+      required:
+        - id
+        - label
+        - value
+        - team_id
+        - created_at
+        - updated_at
+        - created_by
+      description: Piece of (shareable) information about a contact.
+    ContactStatistics:
+      description: 'Statistics about a contact. Potentially used for certain features, such as Send Later.'
+      type: object
+      properties:
+        reply_time_offset:
+          $ref: '#/components/schemas/StatisticsTimeOffset'
+        open_time_offset:
+          $ref: '#/components/schemas/StatisticsTimeOffset'
+        open_time_intervals:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatisticsWeekTimeInterval'
+      required:
+        - reply_time_offset
+        - open_time_offset
+        - open_time_intervals
+    MessageIdentifier:
+      properties:
+        message_id:
+          type: string
+        gmail_message_id:
+          type: string
+        gmail_draft_id:
+          type: string
+        gmail_thread_id:
+          type: string
+        mailbutler_message_id:
+          type: string
+          format: uuid
+      description: 'A unique identifier of a message, based on some sort of frontend-dependent identifier.'
+    ItemContext:
+      properties:
+        message_id:
+          type: string
+        gmail_message_id:
+          type: string
+        gmail_draft_id:
+          type: string
+        mailbutler_message_id:
+          type: string
+          format: uuid
+        contact_id:
+          type: string
+          format: md5_uuid
+      description: The context of a note or a task. Defines to which email or contact a not belongs.
+    EmailMeta:
+      nullable: true
+      properties:
+        to:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactMeta'
+        cc:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactMeta'
+        bcc:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactMeta'
+        subject:
+          type: string
+        sender:
+          $ref: '#/components/schemas/ContactMeta'
+      description: Basic information about an email.
+    Email:
+      x-examples: {}
+      description: The definition of an email with all information important to the Mailbutler system.
+      type: object
+      properties:
+        identifiers:
+          $ref: '#/components/schemas/MessageIdentifier'
+        meta:
+          $ref: '#/components/schemas/EmailMeta'
+        is_tracking_active:
+          type: boolean
+          writeOnly: true
+        tracking_mode:
+          type: integer
+          minimum: 0
+          maximum: 3
+          readOnly: true
+        snooze_state:
+          nullable: true
+          type: object
+          required:
+            - until
+            - from
+          properties:
+            until:
+              type: string
+              format: date-time
+            from:
+              type: string
+        send_later_state:
+          nullable: true
+          type: object
+          required:
+            - send_at
+          properties:
+            send_at:
+              type: string
+              format: date-time
+            delivered_at:
+              type: string
+              format: date-time
+              readOnly: true
+            failure_reason:
+              type: string
+              nullable: true
+              readOnly: true
+        delivered_at:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+        first_opened_at:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+        first_replied_at:
+          type: string
+          format: date-time
+          nullable: true
+        template_id:
+          type: string
+          format: uuid
+          nullable: true
+        signature_id:
+          type: string
+          format: uuid
+          nullable: true
+        note_count:
+          type: integer
+          readOnly: true
+        task_count:
+          type: integer
+          readOnly: true
+        follow_up_state:
+          nullable: true
+          type: object
+          properties:
+            remind_at:
+              type: string
+              format: date-time
+            completed_at:
+              type: string
+              format: date-time
+              readOnly: true
+        created_at:
+          type: string
+          readOnly: true
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        id:
+          type: string
+          readOnly: true
+          format: uuid
+      required:
+        - identifiers
+        - meta
+        - is_tracking_active
+        - tracking_mode
+        - snooze_state
+        - send_later_state
+        - first_opened_at
+        - first_replied_at
+        - template_id
+        - signature_id
+        - id
+    TrackingItem:
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        redirect_url:
+          type: string
+          nullable: true
+        hits:
+          type: array
+          readOnly: true
+          items:
+            $ref: '#/components/schemas/TrackingHit'
+      required:
+        - id
+        - redirect_url
+        - hits
+      description: A particular tracking item. Could either refer to a redirect link or a tracking pixel.
+    TrackingHit:
+      properties:
+        date:
+          type: string
+          format: date-time
+        country_code:
+          type: string
+          nullable: true
+        timezone:
+          type: string
+          nullable: true
+        device:
+          type: string
+          nullable: true
+        device_type:
+          type: string
+          nullable: true
+        operating_system:
+          type: string
+          nullable: true
+        operating_system_type:
+          type: string
+          nullable: true
+        application:
+          type: string
+          nullable: true
+        application_type:
+          type: string
+          nullable: true
+      required:
+        - date
+        - country_code
+        - timezone
+        - device
+        - device_type
+        - operating_system
+        - operating_system_type
+        - application
+        - application_type
+      description: A single hit event of a tracking item with all the stored information about that event.
+    Note:
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        context:
+          $ref: '#/components/schemas/ItemContext'
+        text:
+          type: string
+        team_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          format: uuid
+          readOnly: true
+      required:
+        - id
+        - context
+        - text
+        - team_id
+        - created_at
+        - updated_at
+        - created_by
+      description: A simple note associated to an email or a contact.
+    Task:
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        context:
+          $ref: '#/components/schemas/ItemContext'
+        title:
+          type: string
+        remind_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_followup:
+          type: boolean
+          deprecated: true
+        team_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          format: uuid
+          readOnly: true
+        is_completed:
+          type: boolean
+          writeOnly: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        completed_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+      required:
+        - id
+        - context
+        - title
+        - remind_at
+        - team_id
+        - created_at
+        - updated_at
+        - created_by
+        - is_completed
+        - completed_at
+        - completed_by
+      description: A simple task associated to an email or a contact.
+    Template:
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+        subject:
+          type: string
+        text:
+          type: string
+        team_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+          readOnly: true
+      required:
+        - id
+        - name
+        - subject
+        - text
+        - team_id
+        - created_by
+      description: 'A resusable message template, optionally including a subject line. Templates may contain placeholder fields, which are filled based on the current context when composing a message.'
+    Activity:
+      properties:
+        date:
+          type: string
+          format: date-time
+        type:
+          type: string
+          enum:
+            - snooze
+            - unsnooze
+            - send_later
+            - tracking
+            - task
+            - note
+            - contact_info
+        title:
+          type: string
+        message:
+          type: string
+        context:
+          $ref: '#/components/schemas/ItemContext'
+      required:
+        - date
+        - type
+        - title
+        - message
+        - context
+      description: An event in the activity stream of a user.
+    Error:
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      required:
+        - code
+        - message
+      description: Definition of an error object.
+    StatisticsTimeOffset:
+      type: object
+      properties:
+        value:
+          type: string
+        unit:
+          type: string
+        raw_value:
+          description: Time offset in seconds
+          type: integer
+      required:
+        - value
+        - unit
+        - raw_value
+    StatisticsWeekTimeInterval:
+      type: object
+      properties:
+        value:
+          type: string
+        raw_value:
+          description: 'Center of time interval in seconds relative to Monday, 00:00'
+          type: integer
+      required:
+        - value
+        - raw_value
+  parameters:
+    userIDParam:
+      name: user_id
+      in: path
+      required: true
+      description: unique user identifier or `me`
+      schema:
+        type: string
+    messageIDParam:
+      name: message_id
+      in: path
+      required: true
+      description: message identifier of email
+      schema:
+        type: string
+    trackingItemIDParam:
+      name: tracking_item_id
+      in: path
+      required: true
+      description: identifier of the tracking item
+      schema:
+        type: string
+    noteIDParam:
+      name: note_id
+      in: path
+      required: true
+      description: unique note identifier
+      schema:
+        type: string
+        format: uuid
+    taskIDParam:
+      name: task_id
+      in: path
+      required: true
+      description: unique task identifier
+      schema:
+        type: string
+        format: uuid
+    contactIDParam:
+      name: contact_id
+      in: path
+      required: true
+      description: Unique contact identifier. `uuid(md5($email))`
+      schema:
+        type: string
+        format: uuid
+    contactInfoIDParam:
+      name: info_id
+      in: path
+      required: true
+      description: identifier of the contact information
+      schema:
+        type: string
+        format: uuid
+    pageParam:
+      name: page
+      in: query
+      description: active page to return (pagination)
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    perPageParam:
+      name: per_page
+      in: query
+      description: number of records to return per page
+      schema:
+        type: integer
+        default: 50
+        minimum: 1
+        maximum: 1000
+    messageIDsFilterParam:
+      name: message_ids
+      in: query
+      description: message identifiers to filter by
+      schema:
+        type: array
+        items:
+          type: string
+    noteIDsFilterParam:
+      name: note_ids
+      in: query
+      description: note identifiers to filter by
+      schema:
+        type: array
+        items:
+          type: string
+          format: uuid
+    taskIDsFilterParam:
+      name: task_ids
+      in: query
+      description: task identifiers to filter by
+      schema:
+        type: array
+        items:
+          type: string
+          format: uuid
+    infoIDsFilterParam:
+      name: info_ids
+      in: query
+      description: contact info identifiers to filter by
+      schema:
+        type: array
+        items:
+          type: string
+          format: uuid
+    contactIDsFilterParam:
+      name: contact_ids
+      in: query
+      description: contact_ids to filter by
+      schema:
+        type: array
+        items:
+          type: string
+          format: uuid
+    acceptLanguageParam:
+      name: Accept-Language
+      in: header
+      description: "The user's preferred language"
+      schema:
+        type: string
+        default: en
+    mailServiceIDParam:
+      name: X-Mail-Service-Id
+      in: header
+      description: "Refers to a connected mail service listed in the user's `mail_services` property"
+      required: true
+      schema:
+        type: string
+        format: uuid
+    messageIDTypeParam:
+      name: X-Message-ID-Type
+      in: header
+      description: Defines which type of message identifier to be used in API requests
+      schema:
+        type: string
+        enum:
+          - message_id
+          - gmail_message_id
+          - gmail_thread_id
+          - gmail_draft_id
+          - mailbutler_message_id
+        default: message_id
+tags:
+  - name: user
+    description: User operations
+  - name: email
+    description: Email-related operations
+  - name: task
+    description: Task operations
+  - name: note
+    description: Note operations
+  - name: contact
+    description: Contact operations
+paths:
+  /users:
+    get:
+      tags:
+        - user
+      description: Returns all users for the given user identifiers.
+      parameters:
+        - name: user_ids
+          description: Unique user identifiers for which to return user information
+          in: query
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+      responses:
+        '200':
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+    post:
+      tags:
+        - user
+      description: Create a new user account.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+              required:
+                - email
+                - password
+        required: true
+      responses:
+        '201':
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          description: User successfully created
+  /users/login:
+    post:
+      tags:
+        - user
+      description: 'Login with credentials, either username/password or with last valid token.'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+              required:
+                - email
+                - password
+        required: true
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                properties:
+                  token:
+                    type: string
+  '/users/{user_id}':
+    get:
+      tags:
+        - user
+      description: Returns basic information about a user.
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+      responses:
+        '200':
+          description: User info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  '/users/{user_id}/preferences':
+    get:
+      tags:
+        - user
+      description: Returns user preferences.
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+      responses:
+        '200':
+          description: User preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preferences'
+  '/users/{user_id}/plan':
+    get:
+      tags:
+        - user
+      description: "Returns user's active plan."
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+      responses:
+        '200':
+          description: Active plan for user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+  '/users/{user_id}/services':
+    parameters:
+      - $ref: '#/components/parameters/userIDParam'
+    get:
+      tags:
+        - user
+      description: "Returns user's linked external services"
+      parameters:
+        - name: type
+          description: Filter returned services by their type.
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Linked services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExternalService'
+    post:
+      tags:
+        - user
+      description: Create a new service
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExternalService'
+      responses:
+        '201':
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          description: Service created
+  '/users/{user_id}/services/{service_id}':
+    parameters:
+      - $ref: '#/components/parameters/userIDParam'
+      - name: service_id
+        description: Unique identifier of linked service
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - user
+      description: Returns a linked service (after refreshing its credentials)
+      responses:
+        '200':
+          description: Linked service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalService'
+    put:
+      tags:
+        - user
+      description: Update a service
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExternalService'
+      responses:
+        '204':
+          description: Service updated
+    patch:
+      tags:
+        - user
+      description: Partially update a service
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                type:
+                  type: string
+                name:
+                  type: string
+                  nullable: true
+                email_address:
+                  type: string
+                  nullable: true
+                external_identifier:
+                  type: string
+                  nullable: true
+                incoming_mail_server_config:
+                  $ref: '#/components/schemas/ServerConfig'
+                outgoing_mail_server_config:
+                  $ref: '#/components/schemas/ServerConfig'
+      responses:
+        '200':
+          description: Service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalService'
+  '/users/{user_id}/templates':
+    get:
+      tags:
+        - user
+      description: "Returns user's message templates"
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+      responses:
+        '200':
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Template'
+  '/users/{user_id}/signatures':
+    get:
+      tags:
+        - user
+      description: "Returns user's signatures"
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+      responses:
+        '200':
+          description: Signatures
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Signature'
+  '/users/{user_id}/default_signature':
+    get:
+      tags:
+        - user
+      summary: Gmail only
+      description: 'Returns the default signature for a sender email address [Gmail].'
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+        - name: email
+          description: Email address of which the default signature should be retrieved for
+          in: query
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        '200':
+          description: Signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Signature'
+        '404':
+          description: No signature set for this email address
+    put:
+      tags:
+        - user
+      summary: Gmail only
+      description: 'Set the default signature for a sender email address [Gmail].'
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                email_address:
+                  description: The email address to set the default signature for
+                  type: string
+                  format: email
+                signature_id:
+                  description: The id of the Mailbutler signature to be used as the default.
+                  type: string
+                  format: uuid
+              required:
+                - email_address
+                - signature_id
+      responses:
+        '204':
+          description: Default signature updated
+    delete:
+      tags:
+        - user
+      summary: Gmail only
+      description: 'Reset the default signature for a sender email address [Gmail].'
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+        - name: email
+          description: Email address of which the default signature should be deleted for
+          in: query
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        '204':
+          description: Default signature reset
+  '/users/{user_id}/activities':
+    parameters:
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/perPageParam'
+    get:
+      tags:
+        - user
+      description: "Returns user's activities"
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+      responses:
+        '200':
+          description: Activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Activity'
+          headers:
+            Link:
+              $ref: '#/components/headers/Link'
+            X-Total-Count:
+              $ref: '#/components/headers/X-Total-Count'
+  '/users/{user_id}/teams':
+    get:
+      tags:
+        - user
+      description: "Returns user's teams"
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+      responses:
+        '200':
+          description: Teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Team'
+  '/users/{user_id}/actions/{action_type}':
+    post:
+      tags:
+        - user
+      description: Inform the backend about usage of a front-end feature.
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+        - name: action_type
+          description: Unique code of the consumed action type
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: item_id
+          description: Unique identifier of consumed item. Can be id of message template.
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Action consumed successfully
+          headers:
+            X-Remaining-Actions:
+              $ref: '#/components/headers/X-Remaining-Actions'
+  '/users/{user_id}/remaining_actions':
+    get:
+      tags:
+        - user
+      description: Get the current number of remaining actions in current month for this user.
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+      responses:
+        '200':
+          description: Number of remaining actions
+          content:
+            application/json:
+              schema:
+                type: integer
+  '/users/{user_id}/one_time_password':
+    get:
+      tags:
+        - user
+      description: "Get a one-time password, which is valid for 30 seconds and can be used to login the user to any dashboard page by appendingg it as a GET parameter to the page's URL"
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+      responses:
+        '200':
+          description: One-time password
+          content:
+            application/json:
+              schema:
+                properties:
+                  one_time_password:
+                    type: string
+  '/users/{user_id}/app_store_subscription':
+    post:
+      tags:
+        - user
+      description: Create a subscription for a purchase via the AppStore
+      summary: PRIVATE
+      parameters:
+        - $ref: '#/components/parameters/userIDParam'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                receipt_data:
+                  description: The receipt data as received from the AppStore purchase confirmation.
+                  type: string
+              required:
+                - receipt_data
+      responses:
+        '201':
+          description: Subscription successfully created
+  /emails:
+    get:
+      tags:
+        - email
+      description: Returns email-related data. Can optionally be filtered by message-ids.
+      parameters:
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/perPageParam'
+        - $ref: '#/components/parameters/messageIDTypeParam'
+        - $ref: '#/components/parameters/messageIDsFilterParam'
+      responses:
+        '200':
+          description: Email data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Email'
+          headers:
+            Link:
+              $ref: '#/components/headers/Link'
+            X-Total-Count:
+              $ref: '#/components/headers/X-Total-Count'
+  '/emails/{message_id}':
+    parameters:
+      - $ref: '#/components/parameters/messageIDTypeParam'
+      - $ref: '#/components/parameters/messageIDParam'
+    get:
+      tags:
+        - email
+      description: Returns email-related data.
+      responses:
+        '200':
+          description: Email data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Email'
+    patch:
+      tags:
+        - email
+      description: Update email-related data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                identifiers:
+                  $ref: '#/components/schemas/MessageIdentifier'
+                meta:
+                  $ref: '#/components/schemas/EmailMeta'
+                is_tracking_active:
+                  type: boolean
+                snooze_state:
+                  nullable: true
+                  properties:
+                    until:
+                      type: string
+                      format: date-time
+                    from:
+                      type: string
+                  required:
+                    - until
+                    - from
+                send_later_state:
+                  nullable: true
+                  properties:
+                    send_at:
+                      type: string
+                      format: date-time
+                  required:
+                    - send_at
+                first_replied_at:
+                  type: string
+                  format: date-time
+                template_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                signature_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                follow_up_state:
+                  nullable: true
+                  properties:
+                    remind_at:
+                      type: string
+                      format: date-time
+                    completed:
+                      type: boolean
+      responses:
+        '200':
+          description: Email data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Email'
+          headers:
+            X-Remaining-Actions:
+              $ref: '#/components/headers/X-Remaining-Actions'
+    delete:
+      tags:
+        - email
+      description: Delete email-related data
+      responses:
+        '204':
+          description: Email deleted successfully
+  '/emails/{message_id}/tracking_items':
+    parameters:
+      - $ref: '#/components/parameters/messageIDTypeParam'
+      - $ref: '#/components/parameters/messageIDParam'
+    get:
+      tags:
+        - email
+      description: Returns information about the tracking items of an email
+      responses:
+        '200':
+          description: Tracking Info
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrackingItem'
+    post:
+      tags:
+        - email
+      description: Create a tracking item for an email
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingItem'
+      responses:
+        '201':
+          description: Tracking item created
+          headers:
+            X-Remaining-Actions:
+              $ref: '#/components/headers/X-Remaining-Actions'
+            Location:
+              $ref: '#/components/headers/TrackingItemLocation'
+    delete:
+      tags:
+        - email
+      description: Delete all tracking items for an email
+      responses:
+        '204':
+          description: Tracking items deleted
+  '/emails/{message_id}/tracking_items/stun':
+    parameters:
+      - $ref: '#/components/parameters/messageIDTypeParam'
+      - $ref: '#/components/parameters/messageIDParam'
+    post:
+      tags:
+        - email
+      description: Stun all tracking items of an email for 1 minute
+      responses:
+        '204':
+          description: Tracking items stunned
+  /notes:
+    get:
+      tags:
+        - note
+      description: Get all notes
+      parameters:
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/perPageParam'
+        - $ref: '#/components/parameters/noteIDsFilterParam'
+        - $ref: '#/components/parameters/contactIDsFilterParam'
+        - $ref: '#/components/parameters/messageIDsFilterParam'
+        - $ref: '#/components/parameters/messageIDTypeParam'
+      responses:
+        '200':
+          description: Notes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Note'
+          headers:
+            Link:
+              $ref: '#/components/headers/Link'
+            X-Total-Count:
+              $ref: '#/components/headers/X-Total-Count'
+    post:
+      tags:
+        - note
+      description: Create a new note
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Note'
+      responses:
+        '201':
+          description: Note created
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+            X-Remaining-Actions:
+              $ref: '#/components/headers/X-Remaining-Actions'
+  '/notes/{note_id}':
+    parameters:
+      - $ref: '#/components/parameters/noteIDParam'
+    get:
+      tags:
+        - note
+      description: Get a specific note
+      responses:
+        '200':
+          description: Note
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+    put:
+      tags:
+        - note
+      description: Update a note
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Note'
+      responses:
+        '204':
+          description: Note updated
+    patch:
+      tags:
+        - note
+      description: Partially update a note
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                context:
+                  $ref: '#/components/schemas/ItemContext'
+                text:
+                  type: string
+                team_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+      responses:
+        '200':
+          description: Note
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+    delete:
+      tags:
+        - note
+      description: Delete a note
+      responses:
+        '204':
+          description: Note deleted
+  /tasks:
+    get:
+      tags:
+        - task
+      description: Get all tasks
+      parameters:
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/perPageParam'
+        - $ref: '#/components/parameters/taskIDsFilterParam'
+        - $ref: '#/components/parameters/contactIDsFilterParam'
+        - $ref: '#/components/parameters/messageIDsFilterParam'
+        - $ref: '#/components/parameters/messageIDTypeParam'
+      responses:
+        '200':
+          description: Tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+          headers:
+            Link:
+              $ref: '#/components/headers/Link'
+            X-Total-Count:
+              $ref: '#/components/headers/X-Total-Count'
+    post:
+      tags:
+        - task
+      description: Create a new task
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Task'
+      responses:
+        '201':
+          description: Task created
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+            X-Remaining-Actions:
+              $ref: '#/components/headers/X-Remaining-Actions'
+  '/tasks/{task_id}':
+    parameters:
+      - $ref: '#/components/parameters/taskIDParam'
+    get:
+      tags:
+        - task
+      description: Get a specific task
+      responses:
+        '200':
+          description: Task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+    put:
+      tags:
+        - task
+      description: Update a task
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Task'
+      responses:
+        '204':
+          description: Task updated
+    patch:
+      tags:
+        - task
+      description: Partially update a task
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                context:
+                  $ref: '#/components/schemas/ItemContext'
+                title:
+                  type: string
+                remind_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+                is_followup:
+                  type: boolean
+                  deprecated: true
+                team_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                is_completed:
+                  type: boolean
+      responses:
+        '200':
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+    delete:
+      tags:
+        - task
+      description: Delete a task
+      responses:
+        '204':
+          description: Task deleted
+  /contact_infos:
+    parameters:
+      - name: page
+        in: query
+        description: active page to return (pagination)
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+      - name: per_page
+        in: query
+        description: number of records to return per page
+        schema:
+          type: integer
+          default: 50
+          minimum: 1
+          maximum: 1000
+      - name: info_ids
+        in: query
+        description: contact info identifiers to filter by
+        schema:
+          type: array
+          items:
+            type: string
+            format: uuid
+    get:
+      tags:
+        - contact
+      description: Returns contact infos for a particular set of contacts.
+      responses:
+        '200':
+          description: Contact
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContactInfo'
+          headers:
+            Link:
+              $ref: '#/components/headers/Link'
+            X-Total-Count:
+              $ref: '#/components/headers/X-Total-Count'
+      parameters:
+        - schema:
+            type: array
+          in: query
+          name: contact_ids
+          required: true
+    post:
+      tags:
+        - contact
+      description: Create a new contact info
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactInfo'
+      responses:
+        '201':
+          description: Contact info created
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+            X-Remaining-Actions:
+              $ref: '#/components/headers/X-Remaining-Actions'
+  '/contact_infos/{info_id}':
+    parameters:
+      - name: info_id
+        in: path
+        required: true
+        description: identifier of the contact information
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags:
+        - contact
+      description: Returns particular contact info.
+      responses:
+        '200':
+          description: Contact info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactInfo'
+    put:
+      tags:
+        - contact
+      description: Updates a contact info
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactInfo'
+      responses:
+        '204':
+          description: Contact info updated
+    patch:
+      tags:
+        - contact
+      description: Partially updates a contact
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                label:
+                  type: string
+                value:
+                  type: string
+                team_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Updated contact
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactInfo'
+    delete:
+      tags:
+        - contact
+      description: Delete all contact-related information
+      responses:
+        '204':
+          description: Contact data deleted
+  '/contacts/{contact_id}/statistics':
+    parameters:
+      - schema:
+          type: string
+        name: contact_id
+        in: path
+        required: true
+    get:
+      tags:
+        - contact
+      description: Returns contact statistics for a particular contact.
+      responses:
+        '200':
+          description: Contact statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactStatistics'
+      parameters: []
